@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mô Phỏng 3D: Tìm Kiếm Nhị Phân & Tuần Tự</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Quicksand:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg-deep: #0a0e1a;
+  --bg-card: rgba(15, 22, 45, 0.85);
+  --neon-cyan: #00f0ff;
+  --neon-magenta: #ff00e5;
+  --neon-green: #39ff14;
+  --neon-orange: #ff6a00;
+  --neon-yellow: #ffe600;
+  --gold: #ffd700;
+  --text-primary: #e8eaf6;
+  --text-dim: #7986cb;
+  --glass: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.1);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Quicksand', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(0,240,255,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255,0,229,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(57,255,20,0.05) 0%, transparent 50%);
+  z-index: -1;
+  animation: bgShift 15s ease-in-out infinite alternate;
+}
+
+@keyframes bgShift {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Grid overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  z-index: -1;
+  animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+  0% { transform: perspective(500px) rotateX(2deg) translateY(0); }
+  100% { transform: perspective(500px) rotateX(2deg) translateY(60px); }
+}
+
+.header {
+  text-align: center;
+  padding: 30px 20px 20px;
+  position: relative;
+}
+
+.header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.4rem, 3.5vw, 2.4rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta), var(--neon-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 60px rgba(0,240,255,0.3);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.header .subtitle {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+  color: #000;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+/* Control Panel */
+.controls {
+  max-width: 900px;
+  margin: 0 auto 20px;
+  padding: 0 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.control-group label {
+  font-size: 0.75rem;
+  color: var(--neon-cyan);
+  font-weight: 700;
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.control-group select,
+.control-group input {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.3s;
+  min-width: 140px;
+}
+
+.control-group select:focus,
+.control-group input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 15px rgba(0,240,255,0.2);
+}
+
+.btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+
+.btn:hover::after { transform: translateX(100%); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--neon-cyan), #0088ff);
+  color: #000;
+  box-shadow: 0 4px 20px rgba(0,240,255,0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(0,240,255,0.5);
+}
+
+.btn-step {
+  background: linear-gradient(135deg, var(--neon-magenta), #ff4488);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(255,0,229,0.3);
+}
+
+.btn-step:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(255,0,229,0.5);
+}
+
+.btn-auto {
+  background: linear-gradient(135deg, var(--neon-green), #00cc44);
+  color: #000;
+  box-shadow: 0 4px 20px rgba(57,255,20,0.3);
+}
+
+.btn-reset {
+  background: linear-gradient(135deg, var(--neon-orange), #ff3300);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(255,106,0,0.3);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Main Layout */
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 10px 28px;
+  border: 2px solid var(--glass-border);
+  border-radius: 14px;
+  cursor: pointer;
+  background: var(--bg-card);
+  color: var(--text-dim);
+  transition: all 0.3s;
+  letter-spacing: 1px;
+}
+
+.tab.active-binary {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  background: rgba(0,240,255,0.08);
+  box-shadow: 0 0 20px rgba(0,240,255,0.15);
+}
+
+.tab.active-sequential {
+  border-color: var(--neon-magenta);
+  color: var(--neon-magenta);
+  background: rgba(255,0,229,0.08);
+  box-shadow: 0 0 20px rgba(255,0,229,0.15);
+}
+
+.tab.active-compare {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  background: rgba(57,255,20,0.08);
+  box-shadow: 0 0 20px rgba(57,255,20,0.15);
+}
+
+/* 3D Scene */
+.scene-wrapper {
+  perspective: 1200px;
+  margin-bottom: 20px;
+}
+
+.scene-3d {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 30px 20px;
+  min-height: 320px;
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  backdrop-filter: blur(10px);
+}
+
+.scene-3d::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+}
+
+/* Array Container */
+.array-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+  transform-style: preserve-3d;
+  transform: rotateX(8deg);
+  padding: 20px 0;
+  min-height: 200px;
+}
+
+.cell-wrapper {
+  transform-style: preserve-3d;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cell {
+  width: 52px;
+  min-height: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+  border: 2px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(30,40,80,0.9), rgba(15,22,50,0.95));
+  box-shadow: 
+    0 8px 20px rgba(0,0,0,0.4),
+    0 2px 4px rgba(0,0,0,0.3),
+    inset 0 1px 1px rgba(255,255,255,0.05);
+}
+
+.cell .value {
+  font-size: 0.9rem;
+  z-index: 2;
+}
+
+.cell .index {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* Cell states */
+.cell.active {
+  border-color: var(--neon-cyan);
+  background: linear-gradient(180deg, rgba(0,240,255,0.2), rgba(0,100,180,0.3));
+  box-shadow: 
+    0 0 25px rgba(0,240,255,0.4),
+    0 8px 20px rgba(0,0,0,0.3),
+    inset 0 0 15px rgba(0,240,255,0.1);
+  transform: translateY(-10px) translateZ(20px) scale(1.08);
+  color: var(--neon-cyan);
+}
+
+.cell.active-seq {
+  border-color: var(--neon-magenta);
+  background: linear-gradient(180deg, rgba(255,0,229,0.2), rgba(150,0,120,0.3));
+  box-shadow: 
+    0 0 25px rgba(255,0,229,0.4),
+    0 8px 20px rgba(0,0,0,0.3),
+    inset 0 0 15px rgba(255,0,229,0.1);
+  transform: translateY(-10px) translateZ(20px) scale(1.08);
+  color: var(--neon-magenta);
+}
+
+.cell.found {
+  border-color: var(--neon-green);
+  background: linear-gradient(180deg, rgba(57,255,20,0.25), rgba(0,150,50,0.3));
+  box-shadow: 
+    0 0 35px rgba(57,255,20,0.5),
+    0 8px 20px rgba(0,0,0,0.3),
+    inset 0 0 20px rgba(57,255,20,0.15);
+  transform: translateY(-15px) translateZ(30px) scale(1.15);
+  color: var(--neon-green);
+  animation: foundPulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes foundPulse {
+  0% { box-shadow: 0 0 35px rgba(57,255,20,0.5), 0 8px 20px rgba(0,0,0,0.3); }
+  100% { box-shadow: 0 0 55px rgba(57,255,20,0.7), 0 8px 30px rgba(0,0,0,0.3); }
+}
+
+.cell.eliminated {
+  opacity: 0.2;
+  transform: translateY(10px) translateZ(-20px) scale(0.85);
+  filter: grayscale(1);
+}
+
+.cell.checked {
+  opacity: 0.4;
+  border-color: rgba(255,0,229,0.3);
+  transform: translateZ(-10px) scale(0.92);
+}
+
+.cell.not-found {
+  border-color: var(--neon-orange);
+  background: linear-gradient(180deg, rgba(255,106,0,0.2), rgba(150,50,0,0.3));
+  box-shadow: 0 0 25px rgba(255,106,0,0.4);
+  color: var(--neon-orange);
+}
+
+/* Pointer labels */
+.pointer-label {
+  position: absolute;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: pointerBounce 1.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes pointerBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.pointer-left {
+  background: rgba(0,240,255,0.2);
+  color: var(--neon-cyan);
+  border: 1px solid var(--neon-cyan);
+  top: -28px;
+}
+
+.pointer-right {
+  background: rgba(255,0,229,0.2);
+  color: var(--neon-magenta);
+  border: 1px solid var(--neon-magenta);
+  top: -28px;
+}
+
+.pointer-mid {
+  background: rgba(255,230,0,0.2);
+  color: var(--neon-yellow);
+  border: 1px solid var(--neon-yellow);
+  bottom: -28px;
+}
+
+/* Info Panel */
+.info-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.info-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 18px;
+  backdrop-filter: blur(10px);
+}
+
+.info-card h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.info-card.binary-card h3 { color: var(--neon-cyan); }
+.info-card.seq-card h3 { color: var(--neon-magenta); }
+
+.log-area {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.8;
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-dim);
+}
+
+.log-area::-webkit-scrollbar { width: 4px; }
+.log-area::-webkit-scrollbar-track { background: transparent; }
+.log-area::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 2px; }
+
+.log-entry {
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  animation: logSlide 0.3s ease-out;
+}
+
+@keyframes logSlide {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.log-entry.highlight {
+  background: rgba(0,240,255,0.08);
+  color: var(--neon-cyan);
+}
+
+.log-entry.highlight-seq {
+  background: rgba(255,0,229,0.08);
+  color: var(--neon-magenta);
+}
+
+.log-entry.success {
+  background: rgba(57,255,20,0.1);
+  color: var(--neon-green);
+}
+
+.log-entry.fail {
+  background: rgba(255,106,0,0.1);
+  color: var(--neon-orange);
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.stat-value.cyan { color: var(--neon-cyan); }
+.stat-value.magenta { color: var(--neon-magenta); }
+.stat-value.green { color: var(--neon-green); }
+
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* Compare mode */
+.compare-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.compare-section {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.compare-section h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  margin-bottom: 14px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.compare-section.binary h3 { color: var(--neon-cyan); }
+.compare-section.sequential h3 { color: var(--neon-magenta); }
+
+.compare-array {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  transform: rotateX(5deg);
+  perspective: 800px;
+  min-height: 80px;
+  align-items: center;
+}
+
+.mini-cell {
+  width: 36px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(30,40,80,0.9), rgba(15,22,50,0.95));
+  transition: all 0.4s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.mini-cell.active { border-color: var(--neon-cyan); color: var(--neon-cyan); background: rgba(0,240,255,0.15); transform: translateY(-5px) scale(1.08); box-shadow: 0 0 15px rgba(0,240,255,0.3); }
+.mini-cell.active-seq { border-color: var(--neon-magenta); color: var(--neon-magenta); background: rgba(255,0,229,0.15); transform: translateY(-5px) scale(1.08); box-shadow: 0 0 15px rgba(255,0,229,0.3); }
+.mini-cell.found { border-color: var(--neon-green); color: var(--neon-green); background: rgba(57,255,20,0.15); transform: translateY(-8px) scale(1.12); box-shadow: 0 0 20px rgba(57,255,20,0.4); }
+.mini-cell.eliminated { opacity: 0.2; transform: scale(0.85); }
+.mini-cell.checked { opacity: 0.35; }
+
+/* Theory card */
+.theory-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.theory-card h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--gold);
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.theory-card p, .theory-card li {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+.theory-card ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.theory-card li::before {
+  content: '▸ ';
+  color: var(--neon-cyan);
+}
+
+.theory-card .formula {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--neon-green);
+  background: rgba(57,255,20,0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.hidden { display: none !important; }
+
+/* Compare result banner */
+.compare-result {
+  text-align: center;
+  margin-top: 16px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(57,255,20,0.08);
+  border: 1px solid rgba(57,255,20,0.2);
+  color: var(--neon-green);
+}
+
+.speed-bar {
+  height: 8px;
+  border-radius: 4px;
+  margin: 8px 0;
+  transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.speed-bar.binary-bar { background: linear-gradient(90deg, var(--neon-cyan), #0088ff); }
+.speed-bar.seq-bar { background: linear-gradient(90deg, var(--neon-magenta), #ff4488); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .info-panel, .compare-container { grid-template-columns: 1fr; }
+  .cell { width: 42px; min-height: 56px; }
+  .cell .value { font-size: 0.75rem; }
+  .controls { gap: 8px; }
+  .tabs { gap: 4px; }
+  .tab { padding: 8px 14px; font-size: 0.7rem; }
+  .mini-cell { width: 28px; height: 38px; font-size: 0.55rem; }
+}
+
+/* Particle effect */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particleFly 1s ease-out forwards;
+}
+
+@keyframes particleFly {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">TIN HỌC THPT</div>
+  <h1>MÔ PHỎNG TÌM KIẾM 3D</h1>
+  <p class="subtitle">Nhị Phân (Binary Search) & Tuần Tự (Sequential Search)</p>
+</div>
+
+<div class="controls" id="controls">
+  <div class="control-group">
+    <label>Kích thước mảng</label>
+    <select id="arraySize">
+      <option value="10">10 phần tử</option>
+      <option value="15" selected>15 phần tử</option>
+      <option value="20">20 phần tử</option>
+      <option value="25">25 phần tử</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Giá trị tìm</label>
+    <input type="number" id="searchValue" placeholder="Nhập số..." />
+  </div>
+  <div class="control-group">
+    <label>Tốc độ</label>
+    <select id="speed">
+      <option value="1200">Chậm</option>
+      <option value="700" selected>Vừa</option>
+      <option value="350">Nhanh</option>
+    </select>
+  </div>
+  <div class="control-group" style="flex-direction:row;gap:8px;align-items:flex-end;">
+    <button class="btn btn-primary" id="btnGenerate" onclick="generateArray()">🎲 Tạo Mảng</button>
+    <button class="btn btn-step" id="btnStep" onclick="nextStep()" disabled>▶ Bước Tiếp</button>
+    <button class="btn btn-auto" id="btnAuto" onclick="autoRun()" disabled>⚡ Tự Động</button>
+    <button class="btn btn-reset" id="btnReset" onclick="resetSearch()" disabled>↺ Làm lại</button>
+  </div>
+</div>
+
+<div class="main-content">
+  <div class="tabs">
+    <div class="tab active-binary" id="tabBinary" onclick="switchTab('binary')">🔍 Nhị Phân</div>
+    <div class="tab" id="tabSequential" onclick="switchTab('sequential')">📋 Tuần Tự</div>
+    <div class="tab" id="tabCompare" onclick="switchTab('compare')">⚔️ So Sánh</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value cyan" id="statSteps">0</div>
+      <div class="stat-label">Số bước</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value magenta" id="statComparisons">0</div>
+      <div class="stat-label">Số lần so sánh</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value green" id="statStatus">—</div>
+      <div class="stat-label">Trạng thái</div>
+    </div>
+  </div>
+
+  <!-- Binary Search Scene -->
+  <div id="sceneBinary">
+    <div class="scene-wrapper">
+      <div class="scene-3d">
+        <div class="array-row" id="binaryArray"></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card binary-card">
+        <h3>📘 Nhật ký Nhị Phân</h3>
+        <div class="log-area" id="binaryLog"></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--gold)">💡 Giải thích</h3>
+        <div class="log-area" id="binaryExplain"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sequential Search Scene -->
+  <div id="sceneSequential" class="hidden">
+    <div class="scene-wrapper">
+      <div class="scene-3d">
+        <div class="array-row" id="seqArray"></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-card seq-card">
+        <h3>📙 Nhật ký Tuần Tự</h3>
+        <div class="log-area" id="seqLog"></div>
+      </div>
+      <div class="info-card">
+        <h3 style="color:var(--gold)">💡 Giải thích</h3>
+        <div class="log-area" id="seqExplain"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare Scene -->
+  <div id="sceneCompare" class="hidden">
+    <div class="compare-container">
+      <div class="compare-section binary">
+        <h3>🔵 Nhị Phân (Binary Search)</h3>
+        <div class="compare-array" id="compareBinaryArray"></div>
+        <div style="text-align:center;margin-top:10px;">
+          <span style="font-family:'Orbitron';font-size:1.6rem;color:var(--neon-cyan)" id="compBinSteps">0</span>
+          <span style="font-size:0.7rem;color:var(--text-dim);display:block">bước</span>
+        </div>
+        <div class="speed-bar binary-bar" id="compBinBar" style="width:0%"></div>
+      </div>
+      <div class="compare-section sequential">
+        <h3>🔴 Tuần Tự (Sequential Search)</h3>
+        <div class="compare-array" id="compareSeqArray"></div>
+        <div style="text-align:center;margin-top:10px;">
+          <span style="font-family:'Orbitron';font-size:1.6rem;color:var(--neon-magenta)" id="compSeqSteps">0</span>
+          <span style="font-size:0.7rem;color:var(--text-dim);display:block">bước</span>
+        </div>
+        <div class="speed-bar seq-bar" id="compSeqBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="compare-result hidden" id="compareResult"></div>
+  </div>
+
+  <!-- Theory -->
+  <div class="theory-card">
+    <h3>📖 Lý Thuyết Thuật Toán</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="theoryContent">
+      <div>
+        <p style="color:var(--neon-cyan);font-weight:700;margin-bottom:6px;">Tìm kiếm Nhị Phân</p>
+        <ul>
+          <li>Yêu cầu mảng <b>đã sắp xếp</b></li>
+          <li>So sánh với phần tử <b>giữa</b>, chia đôi vùng tìm kiếm</li>
+          <li>Độ phức tạp: <span class="formula">O(log₂ n)</span></li>
+          <li>Với n=1000 → tối đa <span class="formula">~10 bước</span></li>
+        </ul>
+      </div>
+      <div>
+        <p style="color:var(--neon-magenta);font-weight:700;margin-bottom:6px;">Tìm kiếm Tuần Tự</p>
+        <ul>
+          <li>Không yêu cầu mảng sắp xếp</li>
+          <li>Duyệt <b>từng phần tử</b> từ đầu đến cuối</li>
+          <li>Độ phức tạp: <span class="formula">O(n)</span></li>
+          <li>Với n=1000 → tối đa <span class="formula">1000 bước</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let arr = [];
+let searchTarget = 0;
+let currentTab = 'binary';
+let isRunning = false;
+let autoTimer = null;
+
+// Binary search state
+let binLeft = 0, binRight = 0, binMid = 0;
+let binSteps = 0, binDone = false, binFound = false, binFoundIdx = -1;
+
+// Sequential search state
+let seqIdx = 0, seqSteps = 0, seqDone = false, seqFound = false, seqFoundIdx = -1;
+
+// Compare state
+let compBinState = {}, compSeqState = {};
+let compRunning = false, compTimer = null;
+
+// ===== GENERATE ARRAY =====
+function generateArray() {
+  const size = parseInt(document.getElementById('arraySize').value);
+  const set = new Set();
+  while (set.size < size) {
+    set.add(Math.floor(Math.random() * 99) + 1);
+  }
+  arr = [...set].sort((a, b) => a - b);
+
+  // Auto set a search value
+  const inputVal = document.getElementById('searchValue').value.trim();
+  if (!inputVal) {
+    // Pick a random value from array OR occasionally one NOT in array
+    if (Math.random() < 0.8) {
+      searchTarget = arr[Math.floor(Math.random() * arr.length)];
+    } else {
+      searchTarget = Math.floor(Math.random() * 99) + 1;
+    }
+    document.getElementById('searchValue').value = searchTarget;
+  } else {
+    searchTarget = parseInt(inputVal);
+  }
+
+  resetAllStates();
+  renderAll();
+  document.getElementById('btnStep').disabled = false;
+  document.getElementById('btnAuto').disabled = false;
+  document.getElementById('btnReset').disabled = false;
+}
+
+function resetAllStates() {
+  binLeft = 0; binRight = arr.length - 1; binMid = -1;
+  binSteps = 0; binDone = false; binFound = false; binFoundIdx = -1;
+  seqIdx = 0; seqSteps = 0; seqDone = false; seqFound = false; seqFoundIdx = -1;
+  isRunning = false;
+  clearInterval(autoTimer);
+  autoTimer = null;
+
+  document.getElementById('binaryLog').innerHTML = '';
+  document.getElementById('binaryExplain').innerHTML = '';
+  document.getElementById('seqLog').innerHTML = '';
+  document.getElementById('seqExplain').innerHTML = '';
+  document.getElementById('statSteps').textContent = '0';
+  document.getElementById('statComparisons').textContent = '0';
+  document.getElementById('statStatus').textContent = '—';
+  document.getElementById('compareResult').classList.add('hidden');
+  document.getElementById('compBinSteps').textContent = '0';
+  document.getElementById('compSeqSteps').textContent = '0';
+  document.getElementById('compBinBar').style.width = '0%';
+  document.getElementById('compSeqBar').style.width = '0%';
+
+  compBinState = { left: 0, right: arr.length - 1, mid: -1, steps: 0, done: false, found: false, foundIdx: -1, eliminated: [] };
+  compSeqState = { idx: 0, steps: 0, done: false, found: false, foundIdx: -1, checked: [] };
+}
+
+// ===== RENDER =====
+function renderAll() {
+  renderBinaryArray();
+  renderSeqArray();
+  renderCompareArrays();
+}
+
+function renderBinaryArray() {
+  const container = document.getElementById('binaryArray');
+  container.innerHTML = '';
+  arr.forEach((v, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cell-wrapper';
+
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+
+    if (binFoundIdx === i) {
+      cell.classList.add('found');
+    } else if (binDone && !binFound) {
+      // not found
+    } else if (i < binLeft || i > binRight) {
+      cell.classList.add('eliminated');
+    } else if (i === binMid) {
+      cell.classList.add('active');
+    }
+
+    cell.innerHTML = `<span class="value">${v}</span><span class="index">[${i}]</span>`;
+
+    // Pointer labels
+    if (!binDone || binFoundIdx === i) {
+      if (i === binLeft && binSteps > 0) {
+        const lbl = document.createElement('div');
+        lbl.className = 'pointer-label pointer-left';
+        lbl.textContent = 'L=' + i;
+        wrapper.style.position = 'relative';
+        wrapper.appendChild(lbl);
+      }
+      if (i === binRight && binSteps > 0) {
+        const lbl = document.createElement('div');
+        lbl.className = 'pointer-label pointer-right';
+        lbl.textContent = 'R=' + i;
+        wrapper.style.position = 'relative';
+        wrapper.appendChild(lbl);
+      }
+      if (i === binMid && binMid >= 0) {
+        const lbl = document.createElement('div');
+        lbl.className = 'pointer-label pointer-mid';
+        lbl.textContent = 'M=' + i;
+        wrapper.style.position = 'relative';
+        wrapper.appendChild(lbl);
+      }
+    }
+
+    wrapper.appendChild(cell);
+    container.appendChild(wrapper);
+  });
+}
+
+function renderSeqArray() {
+  const container = document.getElementById('seqArray');
+  container.innerHTML = '';
+  arr.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+
+    if (seqFoundIdx === i) {
+      cell.classList.add('found');
+    } else if (i === seqIdx && !seqDone) {
+      cell.classList.add('active-seq');
+    } else if (i < seqIdx) {
+      cell.classList.add('checked');
+    }
+
+    cell.innerHTML = `<span class="value">${v}</span><span class="index">[${i}]</span>`;
+    container.appendChild(cell);
+  });
+}
+
+function renderCompareArrays() {
+  // Binary side
+  const binC = document.getElementById('compareBinaryArray');
+  binC.innerHTML = '';
+  arr.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'mini-cell';
+    cell.textContent = v;
+
+    if (compBinState.foundIdx === i) cell.classList.add('found');
+    else if (i === compBinState.mid && compBinState.steps > 0 && !compBinState.done) cell.classList.add('active');
+    else if (i < compBinState.left || i > compBinState.right) cell.classList.add('eliminated');
+
+    binC.appendChild(cell);
+  });
+
+  // Seq side
+  const seqC = document.getElementById('compareSeqArray');
+  seqC.innerHTML = '';
+  arr.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'mini-cell';
+    cell.textContent = v;
+
+    if (compSeqState.foundIdx === i) cell.classList.add('found');
+    else if (i === compSeqState.idx && !compSeqState.done) cell.classList.add('active-seq');
+    else if (compSeqState.checked.includes(i)) cell.classList.add('checked');
+
+    seqC.appendChild(cell);
+  });
+}
+
+// ===== BINARY SEARCH STEP =====
+function binaryStep() {
+  if (binDone) return;
+  if (binLeft > binRight) {
+    binDone = true;
+    addLog('binaryLog', `❌ Không tìm thấy ${searchTarget}`, 'fail');
+    addLog('binaryExplain', `Vùng tìm kiếm rỗng (L > R). Kết luận: ${searchTarget} không có trong mảng.`, 'fail');
+    updateStats();
+    renderBinaryArray();
+    return;
+  }
+
+  binMid = Math.floor((binLeft + binRight) / 2);
+  binSteps++;
+
+  addLog('binaryLog', `Bước ${binSteps}: L=${binLeft}, R=${binRight}, M=${binMid} → a[${binMid}]=${arr[binMid]}`, 'highlight');
+
+  if (arr[binMid] === searchTarget) {
+    binDone = true;
+    binFound = true;
+    binFoundIdx = binMid;
+    addLog('binaryLog', `✅ Tìm thấy ${searchTarget} tại vị trí [${binMid}]!`, 'success');
+    addLog('binaryExplain', `a[${binMid}] = ${arr[binMid]} = ${searchTarget}. Tìm thấy! 🎉`, 'success');
+    spawnParticles(document.getElementById('binaryArray'));
+  } else if (arr[binMid] < searchTarget) {
+    addLog('binaryExplain', `a[${binMid}]=${arr[binMid]} < ${searchTarget} → Loại nửa trái, tìm bên PHẢI. L = ${binMid + 1}`, '');
+    binLeft = binMid + 1;
+  } else {
+    addLog('binaryExplain', `a[${binMid}]=${arr[binMid]} > ${searchTarget} → Loại nửa phải, tìm bên TRÁI. R = ${binMid - 1}`, '');
+    binRight = binMid - 1;
+  }
+
+  updateStats();
+  renderBinaryArray();
+}
+
+// ===== SEQUENTIAL SEARCH STEP =====
+function sequentialStep() {
+  if (seqDone) return;
+  if (seqIdx >= arr.length) {
+    seqDone = true;
+    addLog('seqLog', `❌ Duyệt hết mảng, không tìm thấy ${searchTarget}`, 'fail');
+    addLog('seqExplain', `Đã kiểm tra tất cả ${arr.length} phần tử. ${searchTarget} không tồn tại.`, 'fail');
+    updateStats();
+    renderSeqArray();
+    return;
+  }
+
+  seqSteps++;
+  addLog('seqLog', `Bước ${seqSteps}: So sánh a[${seqIdx}]=${arr[seqIdx]} với ${searchTarget}`, 'highlight-seq');
+
+  if (arr[seqIdx] === searchTarget) {
+    seqDone = true;
+    seqFound = true;
+    seqFoundIdx = seqIdx;
+    addLog('seqLog', `✅ Tìm thấy ${searchTarget} tại vị trí [${seqIdx}]!`, 'success');
+    addLog('seqExplain', `a[${seqIdx}] = ${searchTarget}. Tìm thấy sau ${seqSteps} lần so sánh! 🎉`, 'success');
+    spawnParticles(document.getElementById('seqArray'));
+  } else {
+    addLog('seqExplain', `a[${seqIdx}]=${arr[seqIdx]} ≠ ${searchTarget}. Tiếp tục...`, '');
+    seqIdx++;
+  }
+
+  updateStats();
+  renderSeqArray();
+}
+
+// ===== COMPARE MODE =====
+function compareStep() {
+  let binChanged = false, seqChanged = false;
+
+  // Binary step
+  if (!compBinState.done) {
+    if (compBinState.left > compBinState.right) {
+      compBinState.done = true;
+    } else {
+      compBinState.mid = Math.floor((compBinState.left + compBinState.right) / 2);
+      compBinState.steps++;
+      if (arr[compBinState.mid] === searchTarget) {
+        compBinState.done = true;
+        compBinState.found = true;
+        compBinState.foundIdx = compBinState.mid;
+      } else if (arr[compBinState.mid] < searchTarget) {
+        compBinState.left = compBinState.mid + 1;
+      } else {
+        compBinState.right = compBinState.mid - 1;
+      }
+    }
+    binChanged = true;
+  }
+
+  // Sequential step
+  if (!compSeqState.done) {
+    if (compSeqState.idx >= arr.length) {
+      compSeqState.done = true;
+    } else {
+      compSeqState.steps++;
+      if (arr[compSeqState.idx] === searchTarget) {
+        compSeqState.done = true;
+        compSeqState.found = true;
+        compSeqState.foundIdx = compSeqState.idx;
+      } else {
+        compSeqState.checked.push(compSeqState.idx);
+        compSeqState.idx++;
+      }
+    }
+    seqChanged = true;
+  }
+
+  document.getElementById('compBinSteps').textContent = compBinState.steps;
+  document.getElementById('compSeqSteps').textContent = compSeqState.steps;
+
+  const maxSteps = Math.max(compBinState.steps, compSeqState.steps, 1);
+  document.getElementById('compBinBar').style.width = (compBinState.steps / arr.length * 100) + '%';
+  document.getElementById('compSeqBar').style.width = (compSeqState.steps / arr.length * 100) + '%';
+
+  renderCompareArrays();
+
+  if (compBinState.done && compSeqState.done) {
+    const resultEl = document.getElementById('compareResult');
+    resultEl.classList.remove('hidden');
+    if (compBinState.found) {
+      const ratio = compSeqState.steps / Math.max(compBinState.steps, 1);
+      resultEl.innerHTML = `🏆 Nhị phân: <b>${compBinState.steps} bước</b> | Tuần tự: <b>${compSeqState.steps} bước</b><br>
+        Nhị phân nhanh hơn <b>${ratio.toFixed(1)}x</b> lần!`;
+    } else {
+      resultEl.innerHTML = `Không tìm thấy ${searchTarget}.<br>Nhị phân: ${compBinState.steps} bước | Tuần tự: ${compSeqState.steps} bước`;
+    }
+    return true;
+  }
+  return false;
+}
+
+// ===== CONTROLS =====
+function nextStep() {
+  if (currentTab === 'binary') binaryStep();
+  else if (currentTab === 'sequential') sequentialStep();
+  else if (currentTab === 'compare') {
+    const done = compareStep();
+    if (done) disableStepButtons();
+  }
+
+  checkDone();
+}
+
+function autoRun() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('btnAuto').textContent = '⚡ Tự Động';
+    return;
+  }
+
+  const speed = parseInt(document.getElementById('speed').value);
+  document.getElementById('btnAuto').textContent = '⏸ Dừng';
+
+  autoTimer = setInterval(() => {
+    if (currentTab === 'binary' && binDone) { stopAuto(); return; }
+    if (currentTab === 'sequential' && seqDone) { stopAuto(); return; }
+    if (currentTab === 'compare' && compBinState.done && compSeqState.done) { stopAuto(); return; }
+    nextStep();
+  }, speed);
+}
+
+function stopAuto() {
+  clearInterval(autoTimer);
+  autoTimer = null;
+  document.getElementById('btnAuto').textContent = '⚡ Tự Động';
+}
+
+function resetSearch() {
+  stopAuto();
+  searchTarget = parseInt(document.getElementById('searchValue').value) || searchTarget;
+  resetAllStates();
+  renderAll();
+  document.getElementById('btnStep').disabled = false;
+  document.getElementById('btnAuto').disabled = false;
+}
+
+function checkDone() {
+  if (currentTab === 'binary' && binDone) disableStepButtons();
+  if (currentTab === 'sequential' && seqDone) disableStepButtons();
+}
+
+function disableStepButtons() {
+  document.getElementById('btnStep').disabled = true;
+  document.getElementById('btnAuto').disabled = true;
+  stopAuto();
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  stopAuto();
+
+  document.getElementById('tabBinary').className = 'tab' + (tab === 'binary' ? ' active-binary' : '');
+  document.getElementById('tabSequential').className = 'tab' + (tab === 'sequential' ? ' active-sequential' : '');
+  document.getElementById('tabCompare').className = 'tab' + (tab === 'compare' ? ' active-compare' : '');
+
+  document.getElementById('sceneBinary').classList.toggle('hidden', tab !== 'binary');
+  document.getElementById('sceneSequential').classList.toggle('hidden', tab !== 'sequential');
+  document.getElementById('sceneCompare').classList.toggle('hidden', tab !== 'compare');
+
+  // Re-enable buttons if this tab isn't done
+  if (tab === 'binary' && !binDone) { document.getElementById('btnStep').disabled = !arr.length; document.getElementById('btnAuto').disabled = !arr.length; }
+  else if (tab === 'sequential' && !seqDone) { document.getElementById('btnStep').disabled = !arr.length; document.getElementById('btnAuto').disabled = !arr.length; }
+  else if (tab === 'compare' && !(compBinState.done && compSeqState.done)) { document.getElementById('btnStep').disabled = !arr.length; document.getElementById('btnAuto').disabled = !arr.length; }
+  else if (arr.length) disableStepButtons();
+
+  updateStats();
+}
+
+function updateStats() {
+  let steps = 0, comparisons = 0, status = '—';
+
+  if (currentTab === 'binary') {
+    steps = binSteps;
+    comparisons = binSteps;
+    if (binFound) status = '✓';
+    else if (binDone) status = '✗';
+    else status = '...';
+  } else if (currentTab === 'sequential') {
+    steps = seqSteps;
+    comparisons = seqSteps;
+    if (seqFound) status = '✓';
+    else if (seqDone) status = '✗';
+    else status = '...';
+  } else {
+    steps = compBinState.steps + compSeqState.steps;
+    comparisons = steps;
+    if (compBinState.done && compSeqState.done) status = '✓';
+    else status = '...';
+  }
+
+  document.getElementById('statSteps').textContent = steps;
+  document.getElementById('statComparisons').textContent = comparisons;
+  document.getElementById('statStatus').textContent = status;
+}
+
+// ===== HELPERS =====
+function addLog(containerId, text, cls) {
+  const container = document.getElementById(containerId);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry' + (cls ? ' ' + cls : '');
+  entry.textContent = text;
+  container.appendChild(entry);
+  container.scrollTop = container.scrollHeight;
+}
+
+function spawnParticles(parent) {
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = '50%';
+    p.style.top = '50%';
+    p.style.setProperty('--px', (Math.random() - 0.5) * 200 + 'px');
+    p.style.setProperty('--py', (Math.random() - 0.5) * 200 + 'px');
+    p.style.background = ['var(--neon-cyan)', 'var(--neon-green)', 'var(--neon-magenta)', 'var(--neon-yellow)'][Math.floor(Math.random() * 4)];
+    parent.appendChild(p);
+    setTimeout(() => p.remove(), 1000);
+  }
+}
+
+// ===== INIT =====
+generateArray();
+</script>
+</body>
+</html>
