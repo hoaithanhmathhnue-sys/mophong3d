@@ -811,9 +811,117 @@ body::after {
   }
   .author-logo { display: none; }
 }
+
+/* ===== LOGIN =======*/
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 40px rgba(0,240,255,0.07), 0 8px 32px rgba(0,0,0,0.4);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-magenta), transparent);
+}
+
+.login-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 24px;
+}
+
+.login-input {
+  width: 100%;
+  background: rgba(15, 22, 45, 0.5);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-family: 'Quicksand', sans-serif;
+  font-size: 1rem;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.login-input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 15px rgba(0,240,255,0.2);
+}
+
+.login-btn {
+  width: 100%;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--neon-cyan), #0088ff);
+  color: #000;
+  box-shadow: 0 4px 20px rgba(0,240,255,0.3);
+  margin-top: 8px;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(0,240,255,0.5);
+}
+
+.login-error {
+  color: var(--neon-orange);
+  font-size: 0.85rem;
+  margin-top: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.login-error.show {
+  opacity: 1;
+}
+
 </style>
 </head>
 <body>
+
+<div id="loginContainer" class="login-container">
+  <div class="login-card">
+    <div class="login-title">ĐĂNG NHẬP</div>
+    <input type="text" id="username" class="login-input" placeholder="Tên đăng nhập" onkeypress="checkEnter(event)">
+    <input type="password" id="password" class="login-input" placeholder="Mật khẩu" onkeypress="checkEnter(event)">
+    <button class="login-btn" onclick="handleLogin()">VÀO HỆ THỐNG</button>
+    <div id="loginError" class="login-error">Tài khoản hoặc mật khẩu không đúng!</div>
+  </div>
+</div>
+
+<div id="appContainer" class="hidden">
 
 <div class="header">
   <div class="badge">TIN HỌC THPT</div>
@@ -978,6 +1086,8 @@ body::after {
     </div>
   </div>
 </div>
+
+</div> <!-- /appContainer -->
 
 <script>
 // ===== STATE =====
@@ -1427,7 +1537,30 @@ function spawnParticles(parent) {
 }
 
 // ===== INIT =====
-generateArray();
+// Login Logic
+function handleLogin() {
+  const user = document.getElementById('username').value.trim();
+  const pass = document.getElementById('password').value.trim();
+  const errorMsg = document.getElementById('loginError');
+
+  // Accept slightly different casing for user convenience
+  if (user.toLowerCase() === 'trần thị kim thoa' && pass === '12345') {
+    document.getElementById('loginContainer').style.display = 'none';
+    const app = document.getElementById('appContainer');
+    app.classList.remove('hidden');
+    app.style.display = 'block'; // Ensure overrides inline display if any
+    generateArray(); // Start app
+  } else {
+    errorMsg.classList.add('show');
+    setTimeout(() => errorMsg.classList.remove('show'), 3000);
+  }
+}
+
+function checkEnter(e) {
+  if (e.key === 'Enter') {
+    handleLogin();
+  }
+}
 </script>
 </body>
 </html>
